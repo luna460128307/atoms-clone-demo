@@ -8,21 +8,12 @@
 
 | 项目 | 链接 |
 |------|------|
-| **在线 Demo** | https://calm-ads-marry.loca.lt |
 | **GitHub 源码** | https://github.com/luna460128307/atoms-clone-demo |
-
-> 在线 Demo 通过 localtunnel 临时暴露，重启后链接会变化。如需固定域名，请参考下方「部署到 Render / Railway / Vercel」的说明进行正式部署。
+| **在线 Demo** | 见下方部署指南（支持 Render 免费部署，2 分钟获得固定域名） |
 
 ## 快速体验
 
-### 方式一：在线访问（无需安装）
-
-1. 打开 [在线 Demo](https://thick-numbers-speak.loca.lt)
-2. 点击登录页的 **⚡ 快速体验（演示账号）** 按钮，一键进入，无需注册
-3. 系统已预置两个示例应用（待办清单 + 投票调查），可直接在右侧面板操作
-4. 在左侧对话框输入新的需求描述，AI 智能体团队会帮你生成新的应用
-
-### 方式二：本地运行
+### 方式一：本地运行（零门槛，5 秒上手）
 
 ```bash
 cd atoms-clone-demo
@@ -31,7 +22,17 @@ npm start
 # 访问 http://localhost:3000
 ```
 
-Node.js 版本要求 >= 18。首次访问可注册账号（用户名至少 3 位，密码至少 6 位），所有数据保存在 `data/store.json` 中，重启服务不会丢失。也可直接点击「快速体验」使用演示账号。
+Node.js >= 18。打开后点击「⚡ 快速体验（演示账号）」按钮一键进入，无需注册。系统自动预置两个示例应用（待办清单 + 投票调查）。也可注册自己的账号（用户名至少 3 位，密码至少 6 位），所有数据保存在 `data/store.json`，重启不丢失。
+
+### 方式二：一键部署到 Render（获得固定在线链接）
+
+1. Fork 本仓库到你的 GitHub 账号
+2. 登录 [Render](https://render.com) → New → Web Service → 连接 GitHub 仓库 `atoms-clone-demo`
+3. Build Command 填 `npm install`，Start Command 填 `npm start`
+4. 添加环境变量：`SESSION_SECRET` = 随机字符串，`NODE_ENV` = production
+5. 点击 Deploy，约 2 分钟后获得 `https://你的应用名.onrender.com` 固定链接
+
+> 项目根目录已包含 `render.yaml`，支持 Render Blueprint 一键导入部署。也可部署到 Railway、Fly.io 等任何支持 Node.js 的 PaaS 平台（零原生依赖）。
 
 ## 核心交互流程
 
@@ -69,27 +70,6 @@ Node.js 版本要求 >= 18。首次访问可注册账号（用户名至少 3 位
 | 客户管理 / CRM | 客户、crm、线索、跟进 | 销售阶段流转（新线索→意向→报价→已成交） |
 | 商品库存管理 | 库存、商品、进销存 | 库存 ±1、库存为 0 时红色高亮提醒 |
 | 业务数据看板 | 看板、报表、指标、dashboard | 按指标名称分组求和，统计卡片 + 柱状图 |
-
-## 部署指南
-
-### 部署到 Render（推荐，免费 tier）
-
-1. Fork 本仓库到你的 GitHub 账号
-2. 登录 [Render](https://render.com) → New Web Service → Connect GitHub repo → 选择 `atoms-clone-demo`
-3. 构建命令：`npm install`
-4. 启动命令：`npm start`
-5. 添加环境变量：`SESSION_SECRET` = 随机字符串，`NODE_ENV` = production
-6. 点击 Deploy，约 2 分钟后获得固定域名
-
-> 项目根目录已包含 `render.yaml`，支持 Render Blueprint 一键部署（Build Command / Start Command / Health Check Path 均已配置好）。
-
-### 部署到 Railway / Vercel / Fly.io
-
-本项目基于 Express + Node.js >= 18，零原生依赖，可部署到任何支持 Node.js 的 PaaS 平台：
-
-- **Railway**：导入 GitHub 仓库即可自动识别 Node.js 项目
-- **Vercel**：需要将 Express 转换为 Serverless Function 形式（使用 `api/index.js` 入口）
-- **Fly.io**：使用 `fly launch` + `fly deploy`，支持持久化 Volume
 
 ## 目录结构
 
