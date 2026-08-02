@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>Atoms Clone · Agent 驱动的应用生成器</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<!-- 登录/注册界面 -->
+<div class="auth-wrap" id="authWrap">
+  <div class="auth-card">
+    <h1>Atoms Clone</h1>
+    <p class="sub" id="authSub">登录以开始用 AI 智能体生成你的应用</p>
+    <div class="auth-error" id="authError"></div>
+    <input id="authUsername" placeholder="用户名（至少3位）" autocomplete="username" />
+    <input id="authPassword" type="password" placeholder="密码（至少6位）" autocomplete="current-password" />
+    <input id="authNickname" placeholder="昵称（可选，仅注册时使用）" style="display:none" />
+    <button class="primary" id="authSubmitBtn" onclick="submitAuth()">登录</button>
+    <button class="demo-btn" onclick="loginAsDemo()">⚡ 快速体验（演示账号）</button>
+    <div class="auth-toggle">
+      <span id="authToggleText">还没有账号？</span> <a onclick="toggleAuthMode()" id="authToggleLink">立即注册</a>
+    </div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div class="app-layout" id="appLayout">
+  <div class="sidebar">
+    <div class="brand"><div class="logo">⚛️</div><div class="name">Atoms Clone</div></div>
+    <button class="new-btn" onclick="startNewProject()">＋ 新建应用</button>
+    <div class="proj-list" id="projList"></div>
+    <div class="user-bar">
+      <span id="userNick"></span>
+      <span class="logout" onclick="logout()">退出登录</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="chat-panel">
+      <div class="chat-col">
+        <div class="chat-history" id="chatHistory">
+          <div class="empty-hint" id="emptyHint">
+            👋 用一句话描述你想要的应用，AI 智能体团队会帮你分析、建模、编码并生成一个可以真实交互的应用。
+            <div class="examples">
+              <div class="example-chip" onclick="fillExample('帮我做一个待办事项清单')">待办事项清单</div>
+              <div class="example-chip" onclick="fillExample('我想要一个团队留言板')">团队留言板</div>
+              <div class="example-chip" onclick="fillExample('做一个投票调查工具')">投票调查工具</div>
+              <div class="example-chip" onclick="fillExample('每日健身打卡应用')">每日打卡应用</div>
+              <div class="example-chip" onclick="fillExample('做一个门店预约管理系统')">预约管理</div>
+              <div class="example-chip" onclick="fillExample('简单的CRM客户跟进工具')">CRM客户管理</div>
+              <div class="example-chip" onclick="fillExample('商品库存管理小工具')">库存管理</div>
+              <div class="example-chip" onclick="fillExample('业务数据看板')">数据看板</div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <textarea id="promptInput" placeholder="描述你想要的应用，例如：帮我做一个待办事项清单……" onkeydown="handleInputKeydown(event)"></textarea>
+          <button id="sendBtn" onclick="sendPrompt()">生成</button>
+        </div>
+      </div>
+
+      <div class="preview-col">
+        <div class="preview-topbar">
+          <div class="ptitle" id="previewTitle">尚未生成应用</div>
+          <div class="pactions" id="previewActions" style="display:none;">
+            <button onclick="openPreviewNewTab()">新窗口打开</button>
+            <button onclick="exportCode()">下载源码</button>
+            <button onclick="regenerate()">重新生成</button>
+          </div>
+        </div>
+        <div class="preview-frame-wrap" id="previewFrameWrap">
+          <div class="preview-placeholder">
+            <div class="big">🧩</div>
+            <div>生成的应用将在这里实时预览，可直接交互</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

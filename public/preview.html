@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>应用预览</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+    background: #f5f6fa;
+    padding: 28px 16px;
+    min-height: 100vh;
+  }
+  .card {
+    max-width: 520px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+    padding: 26px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.desc { color: #888; font-size: 13px; margin-top: 0; margin-bottom: 20px; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12.5px; color: #666; margin-bottom: 4px; }
+  input[type=text], textarea, input[type=number] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e4e4e4;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  button.submit {
+    color: #fff;
+    border: none;
+    padding: 11px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .list { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .item {
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13.5px;
+  }
+  .item .content { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .item .content .text { overflow-wrap: anywhere; }
+  .item .content .text.done { text-decoration: line-through; color: #aaa; }
+  .item .ops { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+  .item .ops button { background: #f2f2f5; border: none; border-radius: 8px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
+  .item .ops button.danger { color: #d63031; }
+  .empty { color: #aaa; font-size: 13px; text-align: center; padding: 30px 0; }
+  .vote-bar-wrap { flex: 1; }
+  .vote-bar-bg { background: #f0f0f0; border-radius: 6px; height: 8px; overflow: hidden; margin-top: 4px; }
+  .vote-bar-fill { height: 100%; border-radius: 6px; }
+  .badge { background: #f0f0f0; border-radius: 20px; padding: 2px 9px; font-size: 12px; color: #555; }
+  .status-btn { background: #fff; border: 1.5px solid #ccc; border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; font-weight: 600; }
+  .stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat-card { background: #f8f8fb; border-radius: 12px; padding: 14px; }
+  .stat-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 84px 1fr 40px; align-items: center; gap: 8px; font-size: 12.5px; }
+  .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #555; }
+  .bar-track { background: #f0f0f0; border-radius: 6px; height: 10px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 6px; transition: width 0.3s ease; }
+  .bar-value { text-align: right; font-weight: 600; color: #333; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1 id="appTitle">加载中…</h1>
+    <p class="desc" id="appDesc"></p>
+    <div id="formArea"></div>
+    <div class="list" id="listArea"></div>
+  </div>
+
+<script>
+const projectId = location.pathname.split('/').pop();
+let project = null;
+let fields = [];
+
+async function loadProject() {
+  const res = await fetch('/api/projects/' + projectId);
+  if (!res.ok) {
+    document.getElementById('appTitle').textContent = '应用不存在或无权限访问';
+    return;
+  }
+  const data = await res.json();
+  project = data.project;
+  fields = project.template.fields;
+  document.getElementById('appTitle').textContent = project.name;
+  document.getElementById('appDesc').textContent = project.template.description;
+  document.documentElement.style.setProperty('--accent', project.template.accent);
+  renderForm();
+  loadRecords();
+}
+
+// 判断字段是否应出现在「新增」表单中：boolean（如 todo 的完成状态）、
+// select（如预约/CRM 的流转状态）以及显式标记 formHidden 的计数器类字段
+// （likes/votes/streak）都不进表单，而是通过列表里的交互按钮维护。
+// 这里改用「按类型/标记判断」而不是硬编码字段名单，新增模板时更不容易漏改。
+function getInputFields() {
+  return fields.filter((f) => f.type !== 'boolean' && f.type !== 'select' && !f.formHidden);
+}
+
+function renderForm() {
+  const area = document.getElementById('formArea');
+  const inputFields = getInputFields();
+  area.innerHTML = inputFields
+    .map((f) => {
+      if (f.type === 'textarea') {
+        return `<div class="field"><label>${f.label}${f.required ? ' *' : ''}</label><textarea id="f_${f.name}" placeholder="请输入${f.label}"></textarea></div>`;
+      }
+      if (f.type === 'number') {
+        return `<div class="field"><label>${f.label}${f.required ? ' *' : ''}</label><input type="number" id="f_${f.name}" placeholder="请输入${f.label}" /></div>`;
+      }
+      return `<div class="field"><label>${f.label}${f.required ? ' *' : ''}</label><input type="text" id="f_${f.name}" placeholder="请输入${f.label}" /></div>`;
+    })
+    .join('') + `<button class="submit" style="background:${project.template.accent}" onclick="submitRecord()">提交</button>`;
+}
+
+async function submitRecord() {
+  const inputFields = getInputFields();
+  const payload = {};
+  for (const f of inputFields) {
+    const el = document.getElementById('f_' + f.name);
+    payload[f.name] = el ? el.value.trim() : '';
+    if (f.required && !payload[f.name]) {
+      alert('「' + f.label + '」为必填项');
+      return;
+    }
+  }
+  const res = await fetch('/api/runtime/' + projectId + '/records', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    alert(data.error || '提交失败');
+    return;
+  }
+  inputFields.forEach((f) => { const el = document.getElementById('f_' + f.name); if (el) el.value = ''; });
+  loadRecords();
+}
+
+async function loadRecords() {
+  const res = await fetch('/api/runtime/' + projectId + '/records');
+  const data = await res.json();
+  renderList(data.records || []);
+}
+
+function renderList(records) {
+  const area = document.getElementById('listArea');
+  const key = project.template.key;
+  // 看板模板的空态由 renderDashboard 内部统一处理（展示 0 值统计卡片而非纯空提示），
+  // 更符合真实看板「即使没有数据也先把框架展示出来」的体验，因此在此提前分流。
+  if (key === 'dashboard') {
+    renderDashboard(records);
+    return;
+  }
+  if (!records.length) {
+    area.innerHTML = '<div class="empty">暂无数据，快去添加第一条吧～</div>';
+    return;
+  }
+
+  if (key === 'todo') {
+    area.innerHTML = records
+      .map(
+        (r) => `
+      <div class="item">
+        <div class="content">
+          <input type="checkbox" ${r.done ? 'checked' : ''} onchange="toggleDone('${r.id}', this.checked)" />
+          <span class="text ${r.done ? 'done' : ''}">${escapeHtml(r.title)}</span>
+        </div>
+        <div class="ops"><button class="danger" onclick="delRecord('${r.id}')">删除</button></div>
+      </div>`
+      )
+      .join('');
+    return;
+  }
+
+  if (key === 'vote') {
+    const total = records.reduce((s, r) => s + (r.votes || 0), 0) || 1;
+    area.innerHTML = records
+      .map((r) => {
+        const pct = Math.round(((r.votes || 0) / total) * 100);
+        return `
+      <div class="item">
+        <div class="vote-bar-wrap">
+          <div style="display:flex;justify-content:space-between;"><span>${escapeHtml(r.option)}</span><span class="badge">${r.votes || 0} 票 · ${pct}%</span></div>
+          <div class="vote-bar-bg"><div class="vote-bar-fill" style="width:${pct}%;background:${project.template.accent}"></div></div>
+        </div>
+        <div class="ops">
+          <button onclick="voteFor('${r.id}', ${r.votes || 0})">投票</button>
+          <button class="danger" onclick="delRecord('${r.id}')">删除</button>
+        </div>
+      </div>`;
+      })
+      .join('');
+    return;
+  }
+
+  if (key === 'board') {
+    area.innerHTML = records
+      .map(
+        (r) => `
+      <div class="item">
+        <div class="content" style="flex-direction:column;align-items:flex-start;">
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(r.author)}</div>
+          <div class="text">${escapeHtml(r.content)}</div>
+        </div>
+        <div class="ops">
+          <button onclick="likeIt('${r.id}', ${r.likes || 0})">👍 ${r.likes || 0}</button>
+          <button class="danger" onclick="delRecord('${r.id}')">删除</button>
+        </div>
+      </div>`
+      )
+      .join('');
+    return;
+  }
+
+  if (key === 'checkin') {
+    area.innerHTML = records
+      .map(
+        (r) => `
+      <div class="item">
+        <div class="content" style="flex-direction:column;align-items:flex-start;">
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(r.habit)} <span class="badge">已坚持 ${r.streak || 0} 次</span></div>
+          ${r.note ? `<div class="text" style="color:#888;font-size:12.5px;">${escapeHtml(r.note)}</div>` : ''}
+        </div>
+        <div class="ops">
+          <button onclick="streakUp('${r.id}', ${r.streak || 0})">打卡 +1</button>
+          <button class="danger" onclick="delRecord('${r.id}')">删除</button>
+        </div>
+      </div>`
+      )
+      .join('');
+    return;
+  }
+
+  // 预约管理 / CRM：都是 select 状态流转类模板，点击状态徽章即可流转到下一个状态
+  // （借鉴了 untitled2 中「点击状态按钮循环切换」的交互，比纯下拉框更符合真实预约/CRM看板的操作习惯）
+  if (key === 'booking' || key === 'crm') {
+    const selectField = fields.find((f) => f.type === 'select');
+    const primaryField = key === 'booking' ? 'item' : 'company';
+    const secondaryField = key === 'booking' ? 'customer' : null;
+    area.innerHTML = records
+      .map((r) => {
+        const currentValue = r[selectField.name];
+        const nextValue = nextOption(selectField.options, currentValue);
+        return `
+      <div class="item">
+        <div class="content" style="flex-direction:column;align-items:flex-start;">
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(r[primaryField])}</div>
+          ${secondaryField ? `<div class="text" style="color:#888;font-size:12.5px;">${escapeHtml(r[secondaryField])}</div>` : ''}
+        </div>
+        <div class="ops">
+          <button class="status-btn" style="border-color:${project.template.accent};color:${project.template.accent}" onclick="advanceSelect('${r.id}', '${selectField.name}', '${nextValue}')">${escapeHtml(currentValue)}</button>
+          <button class="danger" onclick="delRecord('${r.id}')">删除</button>
+        </div>
+      </div>`;
+      })
+      .join('');
+    return;
+  }
+
+  // 库存管理：数量以 +/- 按钮实时调整，库存为 0 时高亮提醒
+  if (key === 'store') {
+    area.innerHTML = records
+      .map(
+        (r) => `
+      <div class="item">
+        <div class="content">
+          <span class="text">${escapeHtml(r.productName)}</span>
+        </div>
+        <div class="ops">
+          <button onclick="changeQuantity('${r.id}', ${r.quantity || 0}, -1)">－</button>
+          <span class="badge" style="${(r.quantity || 0) === 0 ? 'background:#ffe3e3;color:#d63031;' : ''}">库存 ${r.quantity || 0}</span>
+          <button onclick="changeQuantity('${r.id}', ${r.quantity || 0}, 1)">＋</button>
+          <button class="danger" onclick="delRecord('${r.id}')">删除</button>
+        </div>
+      </div>`
+      )
+      .join('');
+    return;
+  }
+
+  // fallback：通用渲染
+  area.innerHTML = records
+    .map((r) => `<div class="item"><div class="content"><span class="text">${escapeHtml(JSON.stringify(r))}</span></div><div class="ops"><button class="danger" onclick="delRecord('${r.id}')">删除</button></div></div>`)
+    .join('');
+}
+
+function nextOption(options, current) {
+  const idx = options.indexOf(current);
+  return options[(idx + 1) % options.length];
+}
+
+async function advanceSelect(id, fieldName, nextValue) {
+  await patchRecord(id, { [fieldName]: nextValue });
+  loadRecords();
+}
+
+async function changeQuantity(id, current, delta) {
+  const next = Math.max(0, current + delta);
+  await patchRecord(id, { quantity: next });
+  loadRecords();
+}
+
+// 数据看板的真实聚合逻辑：按指标名称分组求和，展示总量卡片 + 简易柱状图对比，
+// 所有数值都来自当前 records，新增一条记录后统计会立刻刷新。
+function renderDashboard(records) {
+  const area = document.getElementById('listArea');
+  const totals = {};
+  records.forEach((r) => {
+    const name = r.metricName || '未命名指标';
+    totals[name] = (totals[name] || 0) + (Number(r.metricValue) || 0);
+  });
+  const entries = Object.entries(totals);
+  const grandTotal = entries.reduce((s, [, v]) => s + v, 0);
+  const maxValue = Math.max(1, ...entries.map(([, v]) => v));
+
+  const statCards = `
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">指标记录总数</div>
+        <div class="stat-value">${records.length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">全部指标累计值</div>
+        <div class="stat-value">${grandTotal}</div>
+      </div>
+    </div>`;
+
+  const bars = entries.length
+    ? `<div class="bar-chart">${entries
+        .map(([name, value]) => {
+          const pct = Math.round((value / maxValue) * 100);
+          return `<div class="bar-row">
+            <div class="bar-label">${escapeHtml(name)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${project.template.accent}"></div></div>
+            <div class="bar-value">${value}</div>
+          </div>`;
+        })
+        .join('')}</div>`
+    : '<div class="empty">暂无指标数据，提交第一条指标记录后看板会自动生成统计</div>';
+
+  area.innerHTML = statCards + bars + `<div class="list" style="margin-top:14px">${records
+    .map((r) => `<div class="item"><div class="content"><span class="text">${escapeHtml(r.metricName)}：${r.metricValue}</span></div><div class="ops"><button class="danger" onclick="delRecord('${r.id}')">删除</button></div></div>`)
+    .join('')}</div>`;
+}
+
+async function toggleDone(id, done) {
+  await patchRecord(id, { done });
+  loadRecords();
+}
+async function voteFor(id, current) {
+  await patchRecord(id, { votes: current + 1 });
+  loadRecords();
+}
+async function likeIt(id, current) {
+  await patchRecord(id, { likes: current + 1 });
+  loadRecords();
+}
+async function streakUp(id, current) {
+  await patchRecord(id, { streak: current + 1 });
+  loadRecords();
+}
+async function patchRecord(id, patch) {
+  await fetch('/api/runtime/' + projectId + '/records/' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+async function delRecord(id) {
+  await fetch('/api/runtime/' + projectId + '/records/' + id, { method: 'DELETE' });
+  loadRecords();
+}
+
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+loadProject();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "atoms-clone-demo",
+  "version": "1.0.0",
+  "description": "Atoms.dev-like AI agent-driven app generator demo",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "bcryptjs": "^2.4.3",
+    "archiver": "^7.0.1",
+    "nanoid": "^3.3.7"
+  }
+}
